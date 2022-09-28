@@ -1,9 +1,6 @@
 import { Request, Response } from 'express';
 import shortUrl from '../models/shortUrl.model.js';
 import validUrl from 'valid-url';
-import { Mutex, MutexInterface } from 'async-mutex';
-
-const locks: Map<string, MutexInterface> = new Map();
 
 export async function createShortUrl(req: Request, res: Response) {
     const { longUrl } = req.body;
@@ -27,17 +24,10 @@ export async function handleRedirect(req: Request, res: Response) {
 
 export async function getNumberOfVisits(req: Request, res: Response) {
     const { id } = req.params;
-    if (!locks.has(id)) {
-        locks.set(id, new Mutex());
+    try {
+        const short = await shortUrl.findOne({ _id: id });
+        return res.send(String(short?.numberOfVisits));
+    } catch (err) {
+        return res.sendStatus(404);
     }
-    locks.get(id)?.acquire().then(async (release) => {
-        try {
-            const short = await shortUrl.findOne({ _id: id });
-            return res.send(String(short?.numberOfVisits));
-        } catch (err) {
-            return res.sendStatus(404);
-        } finally {
-            release();
-        }
-    })
 }
